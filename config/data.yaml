@@ -1,0 +1,4 @@
+cifar10:
+    path: ./data/cifar10
+    num_classes: 10
+    image_size: 32
