@@ -15,4 +15,5 @@ def create_model(model_name: str, **model_args):
     assert model_name in globals() and callable(globals()[model_name]), "The model name is unknown!"
     model_func = globals()[model_name]
     model = model_func(**model_args)
+    print (f"Initialized Model {model_name}.")
     return model 

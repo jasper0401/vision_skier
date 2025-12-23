@@ -17,16 +17,6 @@ import numpy as np
 from src.data_utils import dataloader
 from src.models import model_builder
 
-"""
-if args.resume:
-    # Load checkpoint.
-    print('==> Resuming from checkpoint..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/ckpt.pth')
-    model.load_state_dict(checkpoint['model'])
-    best_acc = checkpoint['acc']
-    start_epoch = checkpoint['epoch']
-"""
 
 # Training
 def train(model, train_loader, criterion, optimizer, scaler, device, dtype):
@@ -85,23 +75,7 @@ def main(args):
     train_loader, val_loader, index_to_string, image_size = dataloader.build_dataset(data_name=args.data_name, batch_size=args.batch_size)
     num_classes = len(index_to_string)
 
-    print('==> Building model..')
-    # model = VGG('VGG19')
-    # model = Resmodel18()
-    # model = PreActResmodel18()
-    # model = GoogLemodel()
-    # model = Densemodel121()
-    # model = ResNeXt29_2x64d()
-    # model = Mobilemodel()
-    # model = MobilemodelV2()
-    # model = DPN92()
-    # model = ShufflemodelG2()
-    # model = SEmodel18()
-    # model = ShufflemodelV2(1)
-    # model = EfficientmodelB0()
-    # model = RegmodelX_200MF()
     model = model_builder.create_model(args.model_name, image_size=image_size, num_classes=num_classes)
-    #model = SimpleDLA(image_size=image_size, num_classes=num_classes)
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
