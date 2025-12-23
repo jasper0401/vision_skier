@@ -1,42 +1,28 @@
+
+import os
+import argparse
 '''Train CIFAR10 with PyTorch.'''
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-
 import torchvision
 import torchvision.transforms as transforms
 import yaml
 
-
-import os
-import argparse
+from src.data_utils import tiny_imagenet_class
 
 DATA_YAML_PATH = "config/data.yaml" 
 with open(DATA_YAML_PATH, 'r') as file:
     # Use safe_load to convert the YAML data into a Python dictionary
     DATA_YAML = yaml.safe_load(file)
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-best_acc = 0  # best test accuracy
-start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-
-def load_cifar(data_folder: str):
-    trainset = torchvision.datasets.CIFAR10(
-        root='./data', train=True, download=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(
-        trainset, batch_size=128, shuffle=True, num_workers=2)
-
-    testset = torchvision.datasets.CIFAR10(
-        root='./data', train=False, download=True, transform=transform_test)
-    testloader = torch.utils.data.DataLoader(
-        testset, batch_size=100, shuffle=False, num_workers=2)
-
+"""
 # Data
-print('==> Preparing data..')
 transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
+    transforms.RandomCrop(image_size, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
@@ -46,27 +32,105 @@ transform_test = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
+"""
 
-trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)
-trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=128, shuffle=True, num_workers=2)
+def load_cifar(data_folder: str, batch_size: int, image_size:int=32, num_workers:int=8):
+    train_transform = transforms.Compose([
+        transforms.RandomCrop(image_size, padding=8),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
 
-testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transform_test)
-testloader = torch.utils.data.DataLoader(
-    testset, batch_size=100, shuffle=False, num_workers=2)
+    val_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
 
-classes = ('plane', 'car', 'bird', 'cat', 'deer',
-           'dog', 'frog', 'horse', 'ship', 'truck')
+    classes = ('plane', 'car', 'bird', 'cat', 'deer',
+            'dog', 'frog', 'horse', 'ship', 'truck')
 
-def build_dataset(data_name):
+    class_mapping = {}
+    index_to_string = {}
+    for i, v in enumerate(classes):
+        class_mapping[v] = i
+        index_to_string[i] = v
+
+    trainset = torchvision.datasets.CIFAR10(
+        root=data_folder, train=True, download=False, transform=train_transform)
+    train_loader = torch.utils.data.DataLoader(
+        trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+    testset = torchvision.datasets.CIFAR10(
+        root=data_folder, train=False, download=False, transform=val_transform)
+    test_loader = torch.utils.data.DataLoader(
+        testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return train_loader, test_loader, index_to_string
+
+def load_tiny_image_net(
+    train_folder: str,
+    val_folder: str,
+    wnid_file: str, 
+    word_file: str, 
+    batch_size: int, 
+    image_size:int=64, 
+    num_workers:int=8,
+    train_transform=None,
+    test_transform=None):
+
+    train_transform = transforms.Compose([
+        transforms.RandomCrop(image_size, padding=8),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
+
+    val_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
+    
+    with open(wnid_file, "r") as reader:
+        wordnet_indexes = [x.rstrip("\n") for x in reader.readlines()]
+
+    index_to_string = {} 
+    with open(word_file, "r") as reader:
+        for line in reader.readlines():
+            strs = line.rstrip("\n").split("\t")
+            if strs[0] in wordnet_indexes:
+                ind = wordnet_indexes.index(strs[0])
+                index_to_string[ind] = strs[-1]
+
+    trainset = tiny_imagenet_class.TinyImagenetTrain(
+        train_folder, wordnet_indexes, transform=train_transform)
+    train_loader = torch.utils.data.DataLoader(
+        trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    testset = tiny_imagenet_class.TinyImagenetVal(
+        val_folder, wordnet_indexes, transform=val_transform)
+    test_loader = torch.utils.data.DataLoader(
+        testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return train_loader, test_loader, index_to_string
+
+def build_dataset(data_name: str, batch_size:int):
     assert data_name in DATA_YAML, "The dataset specified is unknown!"
     data_meta = DATA_YAML[data_name]
-    print (data_meta)
+
+    if data_name == "cifar10":
+        train_loader, val_loader, index_to_string = load_cifar(
+            data_folder=data_meta["path"], batch_size=batch_size)
+    elif data_name == "tiny-imagenet":
+        train_loader, val_loader, index_to_string = load_tiny_image_net(
+            train_folder=data_meta["train_folder"],
+            val_folder=data_meta["val_folder"],
+            wnid_file=data_meta["wnid_file"],
+            word_file=data_meta["word_file"],
+            batch_size=batch_size,
+        )
+    return train_loader, val_loader, index_to_string, data_meta["image_size"]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_name", type=str, default="cifar10")
+    parser.add_argument("--batch_size", type=int, default=64)
     args = parser.parse_args()
-    build_dataset(args.data_name)
+    build_dataset(data_name=args.data_name, batch_size=args.batch_size)
