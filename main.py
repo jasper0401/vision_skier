@@ -1,3 +1,7 @@
+
+import os
+import argparse
+import time
 '''Train CIFAR10 with PyTorch.'''
 import torch
 import torch.nn as nn
@@ -8,115 +12,128 @@ import torch.backends.cudnn as cudnn
 import torchvision
 import torchvision.transforms as transforms
 
-import os
-import argparse
+import numpy as np
 
-from models import *
-from utils import progress_bar
-def main():
-# Model
-print('==> Building model..')
-# net = VGG('VGG19')
-# net = ResNet18()
-# net = PreActResNet18()
-# net = GoogLeNet()
-# net = DenseNet121()
-# net = ResNeXt29_2x64d()
-# net = MobileNet()
-# net = MobileNetV2()
-# net = DPN92()
-# net = ShuffleNetG2()
-# net = SENet18()
-# net = ShuffleNetV2(1)
-# net = EfficientNetB0()
-# net = RegNetX_200MF()
-net = SimpleDLA()
-net = net.to(device)
-if device == 'cuda':
-    net = torch.nn.DataParallel(net)
-    cudnn.benchmark = True
+from src.data_utils import dataloader
+from src.models import model_builder
 
+"""
 if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
     checkpoint = torch.load('./checkpoint/ckpt.pth')
-    net.load_state_dict(checkpoint['net'])
+    model.load_state_dict(checkpoint['model'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=args.lr,
-                      momentum=0.9, weight_decay=5e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-
+"""
 
 # Training
-def train(epoch):
-    print('\nEpoch: %d' % epoch)
-    net.train()
-    train_loss = 0
-    correct = 0
-    total = 0
-    for batch_idx, (inputs, targets) in enumerate(trainloader):
+def train(model, train_loader, criterion, optimizer, scaler, device, dtype):
+    model.train()
+    train_loss = []
+    for batch_idx, (inputs, targets) in enumerate(train_loader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        outputs = net(inputs)
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
 
-        train_loss += loss.item()
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                     % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
-
-
-def test(epoch):
-    global best_acc
-    net.eval()
-    test_loss = 0
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(testloader):
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
+        # Runs the forward pass with autocasting.
+        with torch.autocast(device_type='cuda', dtype=dtype):
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
+        scaler.scale(loss).backward()
+        train_loss.append(loss.item())
+        scaler.step(optimizer)
+        scaler.update()
+    return np.mean(train_loss)
 
-            test_loss += loss.item()
+def test(model, val_loader, device):
+    model.eval()
+    # this confusion statistics is useful when the classes are imbalanced!
+    confusion_mat = {}
+
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(val_loader):
+            inputs = inputs.to(device)
+            outputs = model(inputs).detach().cpu()
+
             _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+            for g, p in zip(targets.tolist(), predicted.tolist()):
+                if g in confusion_mat:
+                    confusion_mat[g].append(p)
+                else:
+                    confusion_mat[g] = [p]
+    
+    total = 0
+    correct = 0
+    class_acc = []
+    for k, v in confusion_mat.items():
+        total += len(v)
+        bool_v = torch.Tensor(v) == k
+        class_correct = bool_v.sum()
+        correct += class_correct
+        class_acc.append(class_correct / len(v))
 
-            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                         % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+    print (f"Total Accuracy: {correct / total:.3f}")
+    print (f"Avg Accuracy: {np.mean(class_acc):.3f}")
+    return confusion_mat
 
-    # Save checkpoint.
-    acc = 100.*correct/total
-    if acc > best_acc:
-        print('Saving..')
-        state = {
-            'net': net.state_dict(),
-            'acc': acc,
-            'epoch': epoch,
-        }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/ckpt.pth')
-        best_acc = acc
+def main(args):
 
+    device = torch.device("cuda") if args.cuda and torch.cuda.is_available() else torch.device("cpu")
+    dtype = torch.float16 if args.dtype == "fp16" else torch.float32
+    print (f"Running experiments on {device} using dtype {dtype}")
+    train_loader, val_loader, index_to_string, image_size = dataloader.build_dataset(data_name=args.data_name, batch_size=args.batch_size)
+    num_classes = len(index_to_string)
 
-for epoch in range(start_epoch, start_epoch+200):
-    train(epoch)
-    test(epoch)
-    scheduler.step()
-    print("Hello from vision-skier!")
-    print (torch.cuda.is_available())
+    print('==> Building model..')
+    # model = VGG('VGG19')
+    # model = Resmodel18()
+    # model = PreActResmodel18()
+    # model = GoogLemodel()
+    # model = Densemodel121()
+    # model = ResNeXt29_2x64d()
+    # model = Mobilemodel()
+    # model = MobilemodelV2()
+    # model = DPN92()
+    # model = ShufflemodelG2()
+    # model = SEmodel18()
+    # model = ShufflemodelV2(1)
+    # model = EfficientmodelB0()
+    # model = RegmodelX_200MF()
+    model = model_builder.create_model(args.model_name, image_size=image_size, num_classes=num_classes)
+    #model = SimpleDLA(image_size=image_size, num_classes=num_classes)
+    model = model.to(device)
 
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=args.lr,
+                        momentum=args.momentum, weight_decay=args.weight_decay)
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.num_epochs)
+
+    scaler = torch.amp.GradScaler()
+
+    if device == torch.device('cuda'):
+        model = torch.nn.DataParallel(model)
+        cudnn.benchmark = True
+
+    for epoch in range(args.num_epochs):
+        start = time.time()
+        epoch_loss = train(model, train_loader, criterion, optimizer, scaler, device, dtype)
+        elapsed = time.time() - start
+        print (f"Epoch: {epoch}, Loss: {epoch_loss}, Elapsed Time: {elapsed:.3f}")
+        conf_mat = test(model, val_loader, device)
+        scheduler.step()
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_name", type=str, default="cifar10")
+    parser.add_argument("--model_name", type=str, default="ResNet18")
+    parser.add_argument("--lr", type=float, default=0.01)
+    parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--weight_decay", type=float, default=5e-4)
+    parser.add_argument("--num_epochs", type=int, default=50)
+    parser.add_argument("--batch_size", type=int, default=256)
+    parser.add_argument("--cuda", type=bool, default=True)
+    parser.add_argument("--dtype", type=str, default="fp16", choices=["fp32", "fp16"])
+    args = parser.parse_args()
+    main(args)
