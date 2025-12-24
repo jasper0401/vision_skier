@@ -1,4 +1,12 @@
 cifar10:
-    path: ./data/cifar10
+    path: ./data/
     num_classes: 10
     image_size: 32
+
+tiny-imagenet:
+    train_folder: ./data/tiny-imagenet-200/train
+    val_folder: ./data/tiny-imagenet-200/val
+    wnid_file: ./data/tiny-imagenet-200/wnids.txt
+    word_file: ./data/tiny-imagenet-200/words.txt
+    num_classes: 200
+    image_size: 64
