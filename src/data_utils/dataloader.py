@@ -10,6 +10,7 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torchvision
 import torchvision.transforms as transforms
+from torchvision.transforms import v2
 import yaml
 
 from src.data_utils import tiny_imagenet_class
@@ -34,17 +35,22 @@ transform_test = transforms.Compose([
 ])
 """
 
-def load_cifar(data_folder: str, batch_size: int, image_size:int=32, num_workers:int=8):
-    train_transform = transforms.Compose([
-        transforms.RandomCrop(image_size, padding=8),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+def load_cifar(data_folder: str, batch_size: int, crop_size:int=28, padding:int=4, num_workers:int=8):
+
+    normalize = v2.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
+    train_transform = v2.Compose([
+        v2.ToImage(),
+        v2.RandomCrop(size=crop_size, padding=padding),
+        v2.RandomHorizontalFlip(),
+        v2.ColorJitter(brightness=.3, contrast=.3, saturation=.3, hue=.1),
+        v2.ToDtype(torch.float32, scale=True),
+        normalize,
     ])
 
-    val_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    val_transform = v2.Compose([
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),
+        normalize,
     ])
 
     classes = ('plane', 'car', 'bird', 'cat', 'deer',
@@ -77,17 +83,20 @@ def load_tiny_image_net(
     num_workers:int=8,
     train_transform=None,
     test_transform=None):
-
-    train_transform = transforms.Compose([
-        transforms.RandomCrop(image_size, padding=8),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    
+    normalize = v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    train_transform = v2.Compose([
+        v2.ToImage(),
+        v2.RandomResizedCrop(size=image_size, antialias=True),
+        v2.RandomHorizontalFlip(),
+        v2.ToDtype(torch.float32, scale=True),
+        normalize,
     ])
 
     val_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),
+        normalize,
     ])
     
     with open(wnid_file, "r") as reader:
