@@ -75,7 +75,8 @@ def main(args):
     train_loader, val_loader, index_to_string, image_size = dataloader.build_dataset(data_name=args.data_name, batch_size=args.batch_size)
     num_classes = len(index_to_string)
 
-    model = model_builder.create_model(args.model_name, image_size=image_size, num_classes=num_classes)
+    #model = model_builder.create_model(args.model_name, image_size=image_size, num_classes=num_classes)
+    model = model_builder.timm_model(args.model_name, num_classes=num_classes)
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -86,9 +87,9 @@ def main(args):
 
     scaler = torch.amp.GradScaler()
 
-    if device == torch.device('cuda'):
-        model = torch.nn.DataParallel(model)
-        cudnn.benchmark = True
+    #if device == torch.device('cuda'):
+    #    model = torch.nn.DataParallel(model)
+    #    cudnn.benchmark = True
 
     for epoch in range(args.num_epochs):
         start = time.time()
@@ -100,13 +101,13 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_name", type=str, default="cifar10")
-    parser.add_argument("--model_name", type=str, default="ResNet18")
-    parser.add_argument("--lr", type=float, default=0.01)
+    parser.add_argument("--data_name", type=str, default="imagenet10_hard")
+    parser.add_argument("--model_name", type=str, default="convnext_tiny")
+    parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=5e-4)
     parser.add_argument("--num_epochs", type=int, default=50)
-    parser.add_argument("--batch_size", type=int, default=256)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--cuda", type=bool, default=True)
     parser.add_argument("--dtype", type=str, default="fp16", choices=["fp32", "fp16"])
     args = parser.parse_args()
