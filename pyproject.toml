@@ -4,7 +4,12 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["torch", "torchvision", "PyYAML"]
+dependencies = [
+    "torch",
+    "torchvision",
+    "PyYAML",
+    "timm>=1.0.24",
+]
 
 [tool.uv.sources]
 torch = { index = "pytorch" }

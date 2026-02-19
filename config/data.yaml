@@ -10,3 +10,15 @@ tiny-imagenet:
     word_file: ./data/tiny-imagenet-200/words.txt
     num_classes: 200
     image_size: 64
+
+imagenet10_easy:
+    train_folder: ./data/imagenet10/imagenet10_easy/train
+    val_folder: ./data/imagenet10/imagenet10_easy/val
+    num_classes: 10
+    image_size: 256
+
+imagenet10_hard:
+    train_folder: ./data/imagenet10/imagenet10_hard/train
+    val_folder: ./data/imagenet10/imagenet10_hard/val
+    num_classes: 10
+    image_size: 256

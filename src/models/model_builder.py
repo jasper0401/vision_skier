@@ -20,7 +20,7 @@ def create_model(model_name: str, **model_args):
     print (f"Initialized Model {model_name}.")
     return model 
 
-def timm_model(model_name: str, image_size: int, num_classes: int, drop_rate:float=.3, drop_path_rate:float=.1) -> nn.Module:
+def timm_model(model_name: str, num_classes: int, drop_rate:float=.3, drop_path_rate:float=.1) -> nn.Module:
     model = timm.create_model(
         model_name, 
         pretrained=True,

@@ -1,6 +1,7 @@
 
 import os
 import argparse
+import pathlib as pl
 '''Train CIFAR10 with PyTorch.'''
 
 import torch
@@ -14,6 +15,7 @@ from torchvision.transforms import v2
 import yaml
 
 from src.data_utils import tiny_imagenet_class
+from src.data_utils import imagenet10_class
 
 DATA_YAML_PATH = "config/data.yaml" 
 with open(DATA_YAML_PATH, 'r') as file:
@@ -120,6 +122,48 @@ def load_tiny_image_net(
         testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return train_loader, test_loader, index_to_string
 
+def load_imagenet10(
+    train_folder: pl.Path,
+    val_folder: pl.Path,
+    batch_size: int, 
+    image_size:int=64, 
+    num_workers:int=8,
+    ):
+    normalize = v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    train_transform = v2.Compose([
+        v2.ToImage(),
+        v2.RandomResizedCrop(size=image_size, antialias=True),
+        v2.RandomHorizontalFlip(),
+        v2.ToDtype(torch.float32, scale=True),
+        normalize,
+    ])
+
+    val_transform = transforms.Compose([
+        v2.ToImage(),
+        v2.Resize(size=image_size, antialias=True),
+        v2.CenterCrop(size=image_size),
+        v2.ToDtype(torch.float32, scale=True),
+        normalize,
+    ])
+    training_set = imagenet10_class.ImageNet10(
+        data_folder=train_folder,
+        transform=train_transform,
+    )
+    train_loader = torch.utils.data.DataLoader(
+        training_set, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    test_set = imagenet10_class.ImageNet10(
+        data_folder=val_folder,
+        label_to_index=training_set.label_to_index,
+        transform=val_transform,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    index_to_string = {}
+    for k, v in training_set.label_to_index.items():
+        index_to_string[v] = k
+    return train_loader, test_loader, index_to_string
+
 def build_dataset(data_name: str, batch_size:int):
     assert data_name in DATA_YAML, "The dataset specified is unknown!"
     data_meta = DATA_YAML[data_name]
@@ -135,6 +179,13 @@ def build_dataset(data_name: str, batch_size:int):
             word_file=data_meta["word_file"],
             batch_size=batch_size,
         )
+    elif data_name.startswith("imagenet10"):
+        train_loader, val_loader, index_to_string = load_imagenet10(
+            train_folder=data_meta["train_folder"],
+            val_folder=data_meta["val_folder"],
+            batch_size=batch_size,
+            image_size=data_meta["image_size"],
+        ) 
     return train_loader, val_loader, index_to_string, data_meta["image_size"]
 
 if __name__ == "__main__":
