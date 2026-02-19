@@ -22,3 +22,8 @@ imagenet10_hard:
     val_folder: ./data/imagenet10/imagenet10_hard/val
     num_classes: 10
     image_size: 256
+
+flickr8k:
+    image_folder: ./data/flickr8k/Images
+    caption: ./data/flickr8k/captions.txt
+    image_size: 252

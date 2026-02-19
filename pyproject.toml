@@ -9,6 +9,7 @@ dependencies = [
     "torchvision",
     "PyYAML",
     "timm>=1.0.24",
+    "transformers>=5.2.0",
 ]
 
 [tool.uv.sources]
