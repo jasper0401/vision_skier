@@ -183,7 +183,7 @@ class Flickr8kDataset(torch.utils.data.Dataset):
         self.labels = defaultdict(list)
 
         with open(caption_file, "r") as reader:
-            for line in reader.readlines():
+            for line in reader.readlines()[1:]:
                 strs = line.rstrip("\n").split(",")
                 img_name = strs[0].strip()
                 caption = strs[1].replace(" .", ".")

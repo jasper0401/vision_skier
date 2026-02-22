@@ -95,7 +95,7 @@ def main(args):
             optimizer.zero_grad()
             image, text_tokens = batch
             image_features = image_encoder(image.to(device))
-            text_features = text_encoder(input_ids=text_tokens["input_ids"].to(device).squeeze(1))
+            text_features = text_encoder(input_ids=text_tokens["input_ids"].to(device).squeeze(1), attention_mask=text_tokens["attention_mask"].to(device).squeeze(1))
             loss, acc  = loss_function(image_features, text_features)
             loss.backward()
             optimizer.step()

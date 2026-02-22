@@ -12,7 +12,8 @@ from src.models.efficientnet import EfficientNetB0
 from src.models.dla import DLA
 from src.models.dpn import DPN26, DPN92
 
-from src.models.nano_clip_models import ImageEncoder, TextEncoder
+#from src.models.nano_clip_models import ImageEncoder, TextEncoder
+from src.models.toy_clip_models import ImageEncoder, TextEncoder
 
 def create_model(model_name: str, **model_args):
     assert model_name in globals() and callable(globals()[model_name]), "The model name is unknown!"
