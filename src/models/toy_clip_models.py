@@ -7,7 +7,7 @@ from transformers import AutoModel, AutoTokenizer
 class ImageEncoder(nn.Module):
     def __init__(self, feat_dim:int=512, output_dim=64,  img_model='resnet18', unfreeze_n_blocks=4):
         super().__init__()
-        self.encoder = torch.hub.load('pytorch/vision', img_model, pretrained=True)
+        self.encoder = torch.hub.load('pytorch/vision', img_model, weights=ResNet18_Weights.DEFAULT)
         # NOTE: remove parts of the backbone. 
         del self.encoder.fc
         # freeze all parameters
